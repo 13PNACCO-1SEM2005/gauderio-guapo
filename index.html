@@ -5,11 +5,11 @@
 	<script>
 		var game = new Phaser.Game(400, 300, Phaser.CANVAS, 'gameCanvas', {preload: preload, create: create, update: update});
 		var player;
-		var ACCELERATION = 50;
-		var MAX_SPEED = 100; 
+		var background;
+		var ACCELERATION = 10;
+		var MAX_SPEED = 300;
 		var ground = new Array(9);
-		var upAheadQueue = new Queue;
-		var mix = new Array();
+		var upAheadQueue = new Queue();
 		var andar = {
    			"frames": [
 				{
@@ -30,31 +30,39 @@
 
 
 		function preload(){
-			game.load.image('ground','ground.png');
-			game.load.image('ground-land','ground-land.png');
-			game.stage.backgroundColor = 0x4488cc;
+			game.load.image('fundo','fundo.png');
+			game.load.image('rua','rua.png');
+			
 			game.load.atlas('player', 'char-johannes.png', Phaser.Loader.TEXTURE_ATLAS_JSON_ARRAY, andar);
 		}
 
 		function create(){
-			player = game.add.sprite(0,180,'player');
+			game.input.keyboard.addKeyCapture([Phaser.Keyboard.LEFT, Phaser.Keyboard.RIGHT]);
+
+			game.world.setBounds(0, 0, 0xFFFFFFFF, 300);
+			game.physics.arcade.gravity.y = 999990;
+
+			background = game.add.sprite(0,0,'fundo');
+			//game.physics.enable(background, Phaser.Physics.ARCADE);
+			//background.body.maxVelocity.setTo(2, 5);
+			//background.body.allowGravity = false;
+
+			player = game.add.sprite(-30,198,'player');
 			player.scale.setTo(0.5,0.5);
 			player.animations.add('run');
 			player.animations.play('run', 8, true);
-			game.world.setBounds(0, 0, 900, 300);
-			
-			game.input.keyboard.addKeyCapture([Phaser.Keyboard.LEFT, Phaser.Keyboard.RIGHT]);
 			game.physics.enable(player, Phaser.Physics.ARCADE);
 			player.body.collideWorldBounds = false;
-			player.body.maxVelocity.setTo(this.MAX_SPEED, this.MAX_SPEED/3);
-			game.physics.arcade.gravity.y = 900;
+			player.body.maxVelocity.setTo(MAX_SPEED, MAX_SPEED/2);
+			player.body.velocity.x = 100;
+
 			for(var x = 0; x < ground.length; x++){
-				ground[x] = game.add.sprite(x*300, game.height - 32, (Math.random() >= 0.48) ? 'ground' : 'ground-land');
+				ground[x] = game.add.sprite(x*205, game.height - 25, 'rua' );
 				game.physics.enable(ground[x], Phaser.Physics.ARCADE);
 				ground[x].body.allowGravity = false;
-				ground[x].body.maxVelocity.setTo(this.MAX_SPEED, 0);
 				ground[x].body.immovable = true;
 			}
+
 			for(var x = 0; x < ground.length; x++) upAheadQueue.enqueue(ground[x]);
 			game.camera.follow(player);
 			game.camera.deadzone = new Phaser.Rectangle(0,32,25,200);
@@ -64,25 +72,19 @@
 			
 			for(var x = 0; x < ground.length; x++){
 				game.physics.arcade.collide(player, ground[x]);
-				ground[x].body.acceleration.x = -ACCELERATION;
-				if(!upAheadQueue.peek().inCamera && mix.length < 4 ) mix.push(upAheadQueue.dequeue());
-				if(upAheadQueue.getLength() <= 5 && ground[x].inCamera && ground[x].x > 1){
-					// console.log(upAheadQueue.getLength());
-					// console.log(ground[x].x);
-					// game.enableStep();
-					mix[2].x = ground[x].x*8;
-					mix[1].x = ground[x].x*7;
-					mix[3].x = ground[x].x*6;
-					mix[0].x = ground[x].x*5;
-					upAheadQueue.enqueue(mix[0]);
-					upAheadQueue.enqueue(mix[3]);
-					upAheadQueue.enqueue(mix[1]);
-					upAheadQueue.enqueue(mix[2]);
-					mix = [];
+				//ground[x].body.acceleration.x = -ACCELERATION;
+				if(!upAheadQueue.peek().inCamera){
+					var aux = upAheadQueue.dequeue();
+					aux.x = aux.x+(205*8)
+					upAheadQueue.enqueue(aux);
+					delete aux;
 				}
 			}
+			if(leftInputIsActive()){
+				player.body.velocity.y = -80099;
+			}
 			player.body.acceleration.x = ACCELERATION;
-			
+			//background.body.acceleration.x = 1;
 		}
 		
 		function leftInputIsActive(){
