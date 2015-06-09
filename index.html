@@ -2,152 +2,170 @@
 <head>
 	<script src="phaser.min.js"></script>
 	<script src="Queue.js"></script>
+	<script src="World.js"></script>
 	<script>
-		var game = new Phaser.Game(400, 300, Phaser.CANVAS, 'gameCanvas', {preload: preload, create: create, update: update});
-		var player;
-		var background = new Array(9);
-		var ACCELERATION = 10;
-		var MAX_SPEED = 400;
-		var ground = new Array(9);
-		var upAheadQueue = new Queue();
-		var upAheadQueueBackground = new Queue();
-		var style = {
-			font: "28px Arial",
-			fill: "#F0EC1A",
-			stroke: "black",
-			strokeThickness: 3
-		};
-		var pontos;
+		var game = new Phaser.Game(window.innerWidth*0.7, 300, Phaser.CANVAS, 'gameCanvas', {preload: preload, create: create, update: update});
+		var player; 
 		var churras;
 		var voice;
-		var andar = {
-   			"frames": [
+		var vida;
+		var sprite;
+	var bloodBMP;
+	var mask;
+		const ANDAR = {
+			"frames": [
 				{
-    				"frame": { "x": 4, "y": 1, "w": 93, "h": 154 }
+					"frame": { "x": 4, "y": 1, "w": 93, "h": 154 }
 				},
 				{
-				    "frame": { "x": 105, "y": 1, "w": 93, "h": 154}
+					"frame": { "x": 105, "y": 1, "w": 93, "h": 154}
 				},
 				{
-				    "frame": { "x": 205, "y": 1, "w": 93, "h": 154}
+					"frame": { "x": 205, "y": 1, "w": 93, "h": 154}
 				},
 				{
-				    "frame": { "x": 305, "y": 1, "w": 93, "h": 154}
+					"frame": { "x": 305, "y": 1, "w": 93, "h": 154}
 				}
 			]	
 		};
 
-
-
 		function preload(){
 			game.load.image('fundo','fundo_transparente.png');
 			game.load.image('rua','rua.png');
-			game.load.image('chima','itens-chimas.png');
+			game.load.image('churras','itens-churras.png');
 			game.load.audio('churras-voice','voice-churras-1.wav');
-			game.load.atlas('player', 'char-johannes.png', Phaser.Loader.TEXTURE_ATLAS_JSON_ARRAY, andar);
+			game.load.image('vida','barra-de-vida.png');
+			game.load.atlas('player', 'char-johannes.png', Phaser.Loader.TEXTURE_ATLAS_JSON_ARRAY, ANDAR);
 		}
 
 		function create(){
-			game.input.keyboard.addKeyCapture([Phaser.Keyboard.LEFT, Phaser.Keyboard.UP]);
-
 			game.world.setBounds(0, 0, 0xFFFFFFFF, 300);
-			game.physics.arcade.gravity.y = 500;
-			game.stage.backgroundColor = '#87CEEB'
+			game.input.keyboard.addKeyCapture([Phaser.Keyboard.LEFT, Phaser.Keyboard.UP]);
+			game.physics.startSystem(Phaser.Physics.ARCADE);
+			game.physics.arcade.gravity.y = 1000;
+			game.stage.backgroundColor = '#87CEEB';
 
-			for(var x = 0; x < background.length; x++){
-				background[x] = game.add.sprite(x*622,0,'fundo');
+			world.get("background").init();
+			world.get("ground").init();
+
+			player = {"sprite" : game.add.sprite(-30,198,'player')};
+			player.hp = 1;
+			player.sprite.scale.setTo(0.5,0.5);
+			player.sprite.animations.add('run');
+			player.sprite.animations.play('run', 8, true);
+			player.sprite.anchor.setTo(0.2, 0.75);
+			game.physics.enable(player.sprite, Phaser.Physics.ARCADE);
+			player.sprite.body.collideWorldBounds = false;
+			player.sprite.body.maxVelocity.setTo(world.get("MAX_SPEED"), world.get("MAX_SPEED")*10);
+			player.sprite.body.velocity.x = 100;
+			player.sprite.body.drag.setTo(60, 0);
+			player.sprite.body.allowGravity = true;
+
+			churras = game.add.group();
+			churras.enableBody = true;
+			churras.physicsBodyType = Phaser.Physics.ARCADE;
+
+			for (var i = 0; i < 50; i++){
+				var c = churras.create(500+(i*299), Math.random() * 400, 'churras', game.rnd.integerInRange(0, 36));
+				c.name = 'churra' + i;
+				c.body.immovable = true;
+				c.body.allowGravity = false;
+				c.scale.setTo(0.190033,0.190033);
 			}
-			//game.physics.enable(background, Phaser.Physics.ARCADE);
-			//background.body.maxVelocity.setTo(2, 5);
-			//background.body.allowGravity = false;
-
-			player = game.add.sprite(-30,198,'player');
-			player.scale.setTo(0.5,0.5);
-			player.animations.add('run');
-			player.animations.play('run', 8, true);
-			game.physics.enable(player, Phaser.Physics.ARCADE);
-			player.body.collideWorldBounds = false;
-			player.body.maxVelocity.setTo(MAX_SPEED, MAX_SPEED*10);
-			player.body.velocity.x = 100;
-			player.body.allowGravity = true;
-			player.body.gravity.y = 10000;
-
-			for(var x = 0; x < ground.length; x++){
-				ground[x] = game.add.sprite(x*205, game.height - 25, 'rua' );
-				game.physics.enable(ground[x], Phaser.Physics.ARCADE);
-				ground[x].body.allowGravity = false;
-				ground[x].body.immovable = true;
-			}
-
-			for(var x = 0; x < ground.length; x++) upAheadQueue.enqueue(ground[x]);
-			for(var x = 0; x < background.length; x++) upAheadQueueBackground.enqueue(background[x]);
-			churras = game.add.sprite(250, 200, 'chima');
-			game.physics.enable(player, Phaser.Physics.ARCADE);
+			;
+			
 			voice = game.add.audio('churras-voice');
-			pontos = game.add.text(320, 10, "0", style);
+			pontos = game.add.text(game.width-80, 10, "0", world.get("POINTS_STYLE"));
 			pontos.fixedToCamera = true;
-			game.camera.follow(player);
+			
+			vida = game.add.sprite(10,10,'vida');
+			vida.fixedToCamera = true;
+			vida.scale.setTo(0.79,0.5);
+			bloodBMP = game.add.bitmapData(vida.width-11,vida.height-8);
+			bloodBMP.ctx.beginPath();
+			bloodBMP.ctx.rect(0,0,vida.width-4,vida.height-2);
+			bloodBMP.ctx.fillStyle = '#ff0000';
+			bloodBMP.ctx.fill();
+			sprite = game.add.sprite(15, 14, bloodBMP);
+			sprite.fixedToCamera = true;
+			player.MAX_LIFE = sprite.width;
+			vida.bringToTop();
+
+			game.camera.follow(player.sprite);
 			game.camera.deadzone = new Phaser.Rectangle(0,32,25,200);
 		}
 		
 		function update(){
-			game.physics.arcade.collide(player, churras, function(){voice.play();});
-			for(var x = 0; x < ground.length; x++){
-				game.physics.arcade.collide(player, ground[x]);
-				game.physics.arcade.collide(churras, ground[x]);
-				//ground[x].body.acceleration.x = -ACCELERATION;
-				if(!upAheadQueue.peek().inCamera){
-					var aux = upAheadQueue.dequeue();
+			game.physics.arcade.overlap(player.sprite, churras, collisionItem);
+
+			for(var x = 0; x < world.get("ground").index.length; x++){
+				game.physics.arcade.collide(player.sprite, world.get("ground").index[x]);
+				game.physics.arcade.collide(churras, world.get("ground").index[x]);
+				
+				if(!world.get("ground").upAheadQueue.peek().inCamera){
+					var aux = world.get("ground").upAheadQueue.dequeue();
 					aux.x = aux.x+(205*8)
-					upAheadQueue.enqueue(aux);
+					world.get("ground").upAheadQueue.enqueue(aux);
 					delete aux;
 				}
 			}
 
-			for(var x = 0; x < background.length; x++){
-				if(!upAheadQueueBackground.peek().inCamera){
-					var aux = upAheadQueueBackground.dequeue();
-					aux.x = aux.x+(622*background.length);
-					upAheadQueueBackground.enqueue(aux);
+			for(var x = 0; x < world.get("background").index.length; x++){
+				if(!world.get("background").upAheadQueue.peek().inCamera){
+					var aux = world.get("background").upAheadQueue.dequeue();
+					aux.x = aux.x+(622*world.get("background").index.length);
+					world.get("background").upAheadQueue.enqueue(aux);
 					delete aux;
 				}
 			}
-			if(upInputIsActive()){
-				player.body.velocity.y = -800;
 
+			if(player.hp > 0) player.sprite.body.acceleration.x = world.get("ACCELERATION");
+			else{ 
+				player.sprite.body.acceleration.x = 0;
+				player.sprite.angle = 90;
+				player.canJump = false;
+				player.sprite.animations.stop();
 			}
-			player.body.acceleration.x = ACCELERATION;
-			pontos.setText(parseInt(player.x/18) <= 0 ? '0' : parseInt(player.x/18));
+
+			player.hp -= 0.0025*(player.sprite.body.velocity.x*1.0101/world.get("MAX_SPEED"));
+
+			sprite.width = player.hp*player.MAX_LIFE >= 0 ? player.hp*player.MAX_LIFE : 0;
+			
+			pontos.setText(parseInt(player.sprite.x/18) <= 0 ? '0' : parseInt(player.sprite.x/18));
+			
+			if(player.sprite.body.touching.down && player.hp > 0) player.canJump = true; 
+			if(player.canJump && upInputIsActive(400)) player.sprite.body.velocity.y = -300;
+			if(!player.sprite.body.touching.down && upInputReleased()) player.canJump = false;
+
 		}
 
-		function leftInputIsActive(){
-			var isActive = false;
+		function upInputIsActive(duration) {
+		    var isActive = false;
 
-			isActive = game.input.keyboard.isDown(Phaser.Keyboard.LEFT);
-			isActive |= (game.input.activePointer.isDown &&
-			game.input.activePointer.x < game.width/4);
+		    isActive = game.input.keyboard.downDuration(Phaser.Keyboard.UP, duration) || (game.input.activePointer.justPressed(duration + 1000/60));
 
-			return isActive;
+		    return isActive;
 		}
 
-		function upInputIsActive(){
-			var isActive = false;
+		function upInputReleased() {
+			var released = false;
 
-			isActive = game.input.keyboard.isDown(Phaser.Keyboard.UP);
-			return isActive;
+			released = game.input.keyboard.upDuration(Phaser.Keyboard.UP) || game.input.activePointer.justReleased();
+
+			return released;
 		}
 
-		function rightInputIsActive() {
-			var isActive = false;
-
-			isActive = game.input.keyboard.isDown(Phaser.Keyboard.RIGHT);
-			isActive |= (game.input.activePointer.isDown &&
-			game.input.activePointer.x > game.width/2 + game.width/4);
-
-			return isActive;
+		function collisionItem(body1, body2){
+			body2.kill();
+			player.hp += 0.1;
+			sprite.width = player.hp*player.MAX_LIFE >= 0 ? player.hp*player.MAX_LIFE : 0;
+			voice.play();
+			return false;
 		}
 
-		
+		function calculaVelocidade(tempo){
+			return player.sprite.body.velocity.x + (world.get("ACCELERATION")*tempo);
+		}
 	</script>
 </head>
 <body>
